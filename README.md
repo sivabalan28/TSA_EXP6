@@ -1,79 +1,135 @@
-# Ex.No: 6               HOLT WINTERS METHOD
-### Date: 
+## Devloped by: Sivabalan S
+## Register Number: 212222240100
+## Date:
 
-
+# Ex.No: 6                   HOLT WINTERS METHOD
 
 ### AIM:
-To create and implement Holt Winter's Method Model using python.
+To implement the Holt Winters Method Model using Python.
 
 ### ALGORITHM:
 1. You import the necessary libraries
-2. You load a CSV file containing daily sales data into a DataFrame, parse the 'date' column as
-datetime, and perform some initial data exploration
-3. You group the data by date and resample it to a monthly frequency (beginning of the month
-4. You plot the time series data
-5. You import the necessary 'statsmodels' libraries for time series analysis
-6. You decompose the time series data into its additive components and plot them:
-7. You calculate the root mean squared error (RMSE) to evaluate the model's performance
-8. You calculate the mean and standard deviation of the entire sales dataset, then fit a Holt-
-Winters model to the entire dataset and make future predictions
-9. You plot the original sales data and the predictions
+2. You load a CSV file containing daily sales data into a DataFrame, parse the 'date' column as datetime, set it as index, and perform some initial data exploration
+3. Resample it to a monthly frequency beginning of the month
+4. You plot the time series data, and determine whether it has additive/multiplicative trend/seasonality
+5. Split test,train data,create a model using Holt-Winters method, train with train data and Evaluate the model  predictions against test data
+6. Create teh final model and predict future data and plot it
+
 ### PROGRAM:
-```
-# Import the necessary libraries
-import pandas as pd
+
+Importing necessary modules
+
+```py
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+```
 
-# Load the dataset
-df = pd.read_csv('ECOMM DATA.csv')
+Load the dataset,perform data exploration
+```py
+data = pd.read_csv('/content/AirPassengers.csv', parse_dates=['Month'],index_col='Month')
 
-# Convert the 'Order Date' column to datetime format and set it as the index
-df['Order Date'] = pd.to_datetime(df['Order Date'])
-df.set_index('Order Date', inplace=True)
+data.head()
+```
 
-# Convert 'Profit' column to numeric (removing invalid values)
-df['Profit'] = pd.to_numeric(df['Profit'], errors='coerce')
+Resample and plot data
 
-# Drop rows with missing values in 'Profit' column
-clean_data = df.dropna(subset=['Profit'])
+```py
+data_monthly = data.resample('MS').sum()   #Month start
 
-# Extract 'Profit' column for time series forecasting
-profit_data_clean = clean_data['Profit']
+data_monthly.head()
 
-# Optional: Check for frequency consistency (e.g., daily, weekly, etc.)
-# profit_data_clean = profit_data_clean.asfreq('B')
+data_monthly.plot()
+```
 
-# Define model parameters and perform Holt-Winters exponential smoothing
-# Adjust seasonal_periods to match the data's seasonality
-seasonal_periods = 365  # Example: annual seasonality if data is daily for multiple years
+Scale the data and check for seasonality
 
-model = ExponentialSmoothing(profit_data_clean, trend="add", seasonal="add", seasonal_periods=seasonal_periods)
-fit = model.fit()
+```py
+scaler = MinMaxScaler()
+scaled_data = pd.Series(scaler.fit_transform(data_monthly.values.reshape(-1, 1)).flatten(),index=data_monthly.index)
 
-# Forecast for the next 30 steps (business days)
-n_steps = 30
-forecast = fit.forecast(steps=n_steps)
+scaled_data.plot() # The data seems to have additive trend and multiplicative seasonality
 
-# Create a date range for the forecast (business days)
-forecast_index = pd.date_range(start=profit_data_clean.index[-1], periods=n_steps+1, freq='B')[1:]
-
-# Plot the original data and the forecast
-plt.figure(figsize=(10, 6))
-plt.plot(profit_data_clean.index, profit_data_clean, label='Original Profit Data', color='blue')
-plt.plot(forecast_index, forecast, label='Forecasted Profit', color='orange')
-plt.xlabel('Date')
-plt.ylabel('Profit')
-plt.title('Holt-Winters Forecast for E-Commerce Profit Data')
-plt.legend()
-plt.grid(True)
+from statsmodels.tsa.seasonal import seasonal_decompose
+decomposition = seasonal_decompose(data_monthly, model="additive")
+decomposition.plot()
 plt.show()
 ```
+
+Split test,train data,create a model using Holt-Winters method, train with train data and Evaluate the model predictions against test data
+
+```py
+scaled_data=scaled_data+1 # multiplicative seasonality cant handle non postive values, yes even zeros
+train_data = scaled_data[:int(len(scaled_data) * 0.8)]
+test_data = scaled_data[int(len(scaled_data) * 0.8):]
+
+model_add = ExponentialSmoothing(train_data, trend='add', seasonal='mul').fit()
+
+test_predictions_add = model_add.forecast(steps=len(test_data))
+
+ax=train_data.plot()
+test_predictions_add.plot(ax=ax)
+test_data.plot(ax=ax)
+ax.legend(["train_data", "test_predictions_add","test_data"])
+ax.set_title('Visual evaluation')
+
+np.sqrt(mean_squared_error(test_data, test_predictions_add))
+
+np.sqrt(scaled_data.var()),scaled_data.mean()
+
+```
+
+Create teh final model and predict future data and plot it
+
+```py
+
+final_model = ExponentialSmoothing(data_monthly, trend='add', seasonal='mul', seasonal_periods=12).fit()
+
+final_predictions = final_model.forecast(steps=int(len(data_monthly)/4)) #for next year
+
+ax=data_monthly.plot()
+final_predictions.plot(ax=ax)
+ax.legend(["data_monthly", "final_predictions"])
+ax.set_xlabel('Number of monthly passengers')
+ax.set_ylabel('Months')
+ax.set_title('Prediction')
+
+```
+
 ### OUTPUT:
+ 
+ Scaled_data plot:
+
+![image](https://github.com/user-attachments/assets/018283be-296b-4fbf-bdfd-fdceffde767b)
+
+Decomposed plot:
+
+![image](https://github.com/user-attachments/assets/5b65a8bb-649c-462e-8797-3a4f15ef149a)
 
 
-![image](https://github.com/user-attachments/assets/b6f6d0ef-10c4-4a41-be70-d0f698c4a05e)
+Test prediction:
+
+![image](https://github.com/user-attachments/assets/929bef1c-4c40-4c61-9663-1d5261ecbc76)
+
+
+Model performance metrics:
+
+RMSE:
+
+![image](https://github.com/user-attachments/assets/f4ad3da5-74da-47e0-ac6b-7bfd286146ac)
+
+
+Standard deviation and mean:
+
+![image](https://github.com/user-attachments/assets/5f8e0d11-feac-435a-8b21-556f4d7b34ef)
+
+
+Final prediction:
+
+![image](https://github.com/user-attachments/assets/09939e5e-935c-4b5a-94a0-d57466430d96)
 
 
 ### RESULT:
